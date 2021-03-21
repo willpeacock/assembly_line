@@ -24,6 +24,8 @@ public class ConveyorPartHandler : MonoBehaviour {
 
     private HandGrabbingController handGrabbingController;
 
+    private GeneralSoundEffectPlayer generalSoundEffectPlayer;
+
     private LayerMask justLeftHandPartLayerMask;
     private LayerMask justRightHandPartLayerMask;
 
@@ -33,6 +35,8 @@ public class ConveyorPartHandler : MonoBehaviour {
     private Renderer mainRenderer = null;
     private Collider mainPartColl = null;
     private Rigidbody rb = null;
+
+    private const float throwAudioVelocityCutoff = 1.0f;
     void Start() {
         allAttatchedBasePartTypes.Add(startingPartType);
 
@@ -47,6 +51,8 @@ public class ConveyorPartHandler : MonoBehaviour {
         mainPartColl = GetComponent<Collider>();
 
         rb = GetComponent<Rigidbody>();
+
+        generalSoundEffectPlayer = FindObjectOfType<GeneralSoundEffectPlayer>();
 
         startingPartType = partType;
 
@@ -145,6 +151,9 @@ public class ConveyorPartHandler : MonoBehaviour {
             handGrabbingController.GetActiveLeftHandPartHandler(),
             handGrabbingController.GetActiveRightHandPartHandler()
         );
+
+        // Play audio sound effect
+        generalSoundEffectPlayer.PlayConnectSound();
 
         // Check if a complete object has been formed
         if (completedObjectNameByPartType != null && completedObjectNameByPartType.Length == 2) {
@@ -248,8 +257,10 @@ public class ConveyorPartHandler : MonoBehaviour {
         return partType;
 	}
 
-    public string GetStartingPartType() {
-        return startingPartType;
+    private void TryPlayThrowAudio() {
+        if (rb.velocity.magnitude >= throwAudioVelocityCutoff) {
+            generalSoundEffectPlayer.PlayWhipSound();
+		}
 	}
 
     public void OnPickedUpByLeftHand() {
@@ -262,6 +273,9 @@ public class ConveyorPartHandler : MonoBehaviour {
                 transform.GetChild(0).GetChild(i).gameObject.layer = LayerMask.NameToLayer("LeftHandPart");
             }
         }
+
+        physicsObjectHandler.SetCanPlayAudioAfterRelease(false);
+        physicsObjectHandler.PlayObjectBangSound();
     }
 
     public void OnPickedUpByRightHand() {
@@ -274,6 +288,9 @@ public class ConveyorPartHandler : MonoBehaviour {
                 transform.GetChild(0).GetChild(i).gameObject.layer = LayerMask.NameToLayer("RightHandPart");
             }
         }
+
+        physicsObjectHandler.SetCanPlayAudioAfterRelease(false);
+        physicsObjectHandler.PlayObjectBangSound();
     }
 
     public void OnPutDownFromHand() {
@@ -286,5 +303,10 @@ public class ConveyorPartHandler : MonoBehaviour {
                 transform.GetChild(0).GetChild(i).gameObject.layer = LayerMask.NameToLayer("Grabbable");
             }
         }
+
+        TryPlayThrowAudio();
+
+        physicsObjectHandler.SetCanPlayAudioAfterRelease(true);
+        physicsObjectHandler.PlayObjectBangSound();
     }
 }

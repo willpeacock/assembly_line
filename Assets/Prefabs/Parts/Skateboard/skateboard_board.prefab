@@ -9024,6 +9024,7 @@ MonoBehaviour:
   completedObjectNameByPartType:
   - skateboard_board@skateboard_truck@skateboard_truck@skateboard_wheel@skateboard_wheel@skateboard_wheel@skateboard_wheel
   - skateboard
+  isCompleteObject: 0
 --- !u!114 &8779494122745550854
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -9036,6 +9037,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 29d7e5fd4cad0424d828e93992846ed0, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  materialType: wood
 --- !u!114 &8779494122745550855
 MonoBehaviour:
   m_ObjectHideFlags: 0

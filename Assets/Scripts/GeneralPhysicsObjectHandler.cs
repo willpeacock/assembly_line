@@ -5,6 +5,8 @@ using DG.Tweening;
 
 [RequireComponent(typeof(Rigidbody))]
 public class GeneralPhysicsObjectHandler : MonoBehaviour {
+    public string materialType = "metal";
+
     private bool hasTriggeredDissolve = false;
     private bool hasBeenDestroyed = false;
 
@@ -23,6 +25,8 @@ public class GeneralPhysicsObjectHandler : MonoBehaviour {
     private Coroutine delayBeforeHitSoundCo;
     private bool delayBeforeHitSoundCoOn = false;
 
+    private bool canPlayAudioAfterRelease = false;
+
     private const float outOfBoundsCutoffYPos = -5.0f;
     private const string dissolveShaderPath = "Universal Render Pipeline/Autodesk Interactive/Autodesk Dissolve";
 
@@ -35,7 +39,7 @@ public class GeneralPhysicsObjectHandler : MonoBehaviour {
         dissolveShader = Shader.Find(dissolveShaderPath);
         if (dissolveShader == null) {
             Debug.Log($"WARNING - Unable to find shader: '{dissolveShaderPath}'");
-		}
+        }
 
         generalSoundEffectPlayer = FindObjectOfType<GeneralSoundEffectPlayer>();
 
@@ -51,24 +55,24 @@ public class GeneralPhysicsObjectHandler : MonoBehaviour {
         }
     }
 
-	private void FixedUpdate() {
-		if (hasTriggeredDissolve && !hasBeenDestroyed) {
+    private void FixedUpdate() {
+        if (hasTriggeredDissolve && !hasBeenDestroyed) {
             foreach (Rigidbody rb in allRBs) {
                 rb.AddForce(Vector3.up * dissolveUpwardsForce);
 
                 rb.AddTorque(randomTorqueDir * dissolveTorque);
             }
         }
-	}
+    }
 
     public void SetChildrenToLayer(Transform parentTransform, int layer) {
         foreach (Transform child in parentTransform) {
             child.gameObject.layer = layer;
             SetChildrenToLayer(child, layer);
         }
-	}
+    }
 
-	public void OnObjectDissolve(bool objectSubmittedDissolve = false) {
+    public void OnObjectDissolve(bool objectSubmittedDissolve = false) {
         hasTriggeredDissolve = true;
 
         if (partHandler != null) {
@@ -117,7 +121,7 @@ public class GeneralPhysicsObjectHandler : MonoBehaviour {
         }
         else {
             OnObjectDestroy();
-		}
+        }
     }
 
     private void OnObjectDestroy() {
@@ -126,7 +130,7 @@ public class GeneralPhysicsObjectHandler : MonoBehaviour {
         }
         hasBeenDestroyed = true;
         Destroy(gameObject);
-	}
+    }
 
     private bool LayerIsInLayerMask(int layer, LayerMask layerMask) {
         return layerMask == (layerMask | (1 << layer));
@@ -135,7 +139,15 @@ public class GeneralPhysicsObjectHandler : MonoBehaviour {
     private IEnumerator DelayBeforeHitSoundCo() {
         yield return new WaitForSeconds(0.25f);
         delayBeforeHitSoundCoOn = false;
-	}
+    }
+
+    public void SetCanPlayAudioAfterRelease(bool canPlay) {
+        canPlayAudioAfterRelease = canPlay;
+    }
+
+    public void PlayObjectBangSound() {
+        generalSoundEffectPlayer.PlayObjectBangSound(transform, materialType);
+    }
 
     private void OnCollisionEnter(Collision collision) {
 		if (!hasTriggeredDissolve && !hasBeenDestroyed
@@ -145,7 +157,8 @@ public class GeneralPhysicsObjectHandler : MonoBehaviour {
             OnObjectDissolve();
         }
 
-        if (!delayBeforeHitSoundCoOn) {
+        // If can play audio and hit something not connected to self
+        if (!delayBeforeHitSoundCoOn && collision.gameObject.layer != gameObject.layer) {
             if (gameObject.layer == LayerMask.NameToLayer("LeftHandPart")
             || gameObject.layer == LayerMask.NameToLayer("RightHandPart")) {
 
@@ -155,8 +168,16 @@ public class GeneralPhysicsObjectHandler : MonoBehaviour {
                 delayBeforeHitSoundCoOn = true;
                 delayBeforeHitSoundCo = StartCoroutine(DelayBeforeHitSoundCo());
 
-                //generalSoundEffectPlayer.PlayMetalBangSound(transform);
+                generalSoundEffectPlayer.PlayObjectBangSound(transform, materialType);
             }
         }
+        // If it was released, let it play a hit sound for the first thing it hits
+        if (canPlayAudioAfterRelease && !delayBeforeHitSoundCoOn) {
+            if (gameObject.layer == LayerMask.NameToLayer("Grabbable")) {
+                generalSoundEffectPlayer.PlayObjectBangSound(transform, materialType);
+
+                canPlayAudioAfterRelease = false;
+            }
+		}
 	}
 }

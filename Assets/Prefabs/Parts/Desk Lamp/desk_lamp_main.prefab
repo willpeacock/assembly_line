@@ -2180,8 +2180,11 @@ MonoBehaviour:
     - {fileID: 6051414114043545554}
     m_values:
     - subPartType: desk_lamp_bulb
-      requiredOtherSubPartTypes: []
-      canHaveMultipleOfSameType: 0
+      requiredOtherSubPartObjects: []
+      requiredOneOfOtherSubPartObjects: []
+      prohibitingOtherSubPartObjects: []
+  completedObjectNameByPartType: []
+  isCompleteObject: 0
 --- !u!114 &4921494092135379218
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2194,6 +2197,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 29d7e5fd4cad0424d828e93992846ed0, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  materialType: metal_alt
 --- !u!114 &8843760141732191289
 MonoBehaviour:
   m_ObjectHideFlags: 0

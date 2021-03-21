@@ -44,7 +44,9 @@ public class TVBoxHandler : MonoBehaviour {
 
     private const float rotateTVObjectsSpeed = 10.0f;
 
-    private float jobTimeMultiplier = 15.0f;
+    private float jobTimeMultiplier = 5.0f;
+
+    private const float baseJobTime = 20.0f;
     void Start() {
         jobPartTypes = new List<string>(jobPartPricingByType.Keys);
 
@@ -131,7 +133,7 @@ public class TVBoxHandler : MonoBehaviour {
         currentEarnings = jobPartPricingByType[jobPartType];
         startingEarnings = currentEarnings;
 
-        currentTimer = jobTimeMultiplier * startingEarnings / 2.0f;
+        currentTimer = Mathf.CeilToInt(jobTimeMultiplier * (baseJobTime + startingEarnings / 4.0f));
         startingTimer = currentTimer;
 
         timeRemainingTextMesh.text = $"{Mathf.CeilToInt(currentTimer)}";
@@ -142,7 +144,7 @@ public class TVBoxHandler : MonoBehaviour {
         screenObjects[1].SetActive(false);
 
         jobIsActive = true;
-        jobActiveCo = StartCoroutine(JobActiveCo(jobIndex));
+        jobActiveCo = StartCoroutine(JobActiveCo());
     }
 
     private string GetEarningsString() {
@@ -178,12 +180,12 @@ public class TVBoxHandler : MonoBehaviour {
         jobCompletedTextObject.SetActive(false);
     }
 
-    private void OnJobTimerFinished(int jobIndex) {
+    private void OnJobTimerFinished() {
         ShutOffScreen();
-        buildJobManager.OnTVBoxJobBehaviorFinished(jobIndex);
+        buildJobManager.OnTVBoxJobBehaviorFinished(this);
     }
 
-    public float OnJobSubmitted(int jobIndex) {
+    public float OnJobSubmitted() {
         if (jobActiveCo != null) {
             StopCoroutine(jobActiveCo);
 		}
@@ -194,7 +196,7 @@ public class TVBoxHandler : MonoBehaviour {
 
         jobIsActive = false;
 
-        StartCoroutine(OnJobSubmittedCo(jobIndex));
+        StartCoroutine(OnJobSubmittedCo());
 
         return currentEarnings;
     }
@@ -207,13 +209,13 @@ public class TVBoxHandler : MonoBehaviour {
         return jobTimeMultiplier;
 	}
 
-    private IEnumerator OnJobSubmittedCo(int jobIndex) {
+    private IEnumerator OnJobSubmittedCo() {
         yield return new WaitForSeconds(3.0f);
 
-        OnJobTimerFinished(jobIndex);
+        OnJobTimerFinished();
     }
 
-    private IEnumerator JobActiveCo(int jobIndex) {
+    private IEnumerator JobActiveCo() {
         while (currentTimer > 0) {
             AnimateTVVisuals();
 
@@ -240,6 +242,6 @@ public class TVBoxHandler : MonoBehaviour {
 
         yield return new WaitForSeconds(3.0f);
 
-        OnJobTimerFinished(jobIndex);
+        OnJobTimerFinished();
     }
 }

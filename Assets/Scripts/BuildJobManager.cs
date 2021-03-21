@@ -4,7 +4,6 @@ using UnityEngine;
 using TMPro;
 using UnityEngine.SceneManagement;
 using UnityEngine.XR;
-using UnityEngine.XR.Interaction.Toolkit;
 
 public class BuildJobManager : MonoBehaviour {
     public List<string> jobPartTypes;
@@ -18,13 +17,14 @@ public class BuildJobManager : MonoBehaviour {
     public PartsSpawnManager spawnManager;
     public XRNode rightController;
     public XRNode leftController;
+    public AudioSource mainMusicAudioSource;
 
     public List<string> activeJobPartTypes;
     private List<TVBoxHandler> activeTVBoxHandlers;
 
     private List<TVBoxHandler> availableTVBoxHandlers;
 
-    private Vector2 delayBeforeNextJobRange = new Vector2(10.0f, 15.0f);
+    private Vector2 delayBeforeNextJobRange = new Vector2(15.0f, 20.0f);
 
     private Coroutine mainJobLaunchingCo;
 
@@ -36,6 +36,7 @@ public class BuildJobManager : MonoBehaviour {
 
     private float currentConveyorSpeed = 0.0f;
     private float currentTimeMultiplier = 0.0f;
+    private float currentSpawnTimeMultiplier = 0.0f;
 
     private InputDevice rightControllerDevice;
     private InputDevice leftControllerDevice;
@@ -58,6 +59,8 @@ public class BuildJobManager : MonoBehaviour {
         foreach (ConveyorBeltHandler beltHandler in conveyorBeltHandlers) {
             beltHandler.SetSpeed(0);
         }
+
+        currentSpawnTimeMultiplier = spawnManager.GetSpawnTimeMultiplier();
 
         currentTimeMultiplier = tvBoxHandlers[0].GetTimeMultiplier();
 
@@ -157,6 +160,8 @@ public class BuildJobManager : MonoBehaviour {
         TVBoxHandler nextTVBoxHandler = availableTVBoxHandlers[0];
         availableTVBoxHandlers.RemoveAt(0);
 
+        soundEffectPlayer.PlayBellSound();
+
         string nextJobPartType = availableJobPartTypes[Random.Range(0, availableJobPartTypes.Count)];
         activeJobPartTypes.Add(nextJobPartType);
         activeTVBoxHandlers.Add(nextTVBoxHandler);
@@ -164,22 +169,21 @@ public class BuildJobManager : MonoBehaviour {
         nextTVBoxHandler.OnJobStart(nextJobPartType, activeJobPartTypes.Count-1);
     }
 
-    public void OnTVBoxJobBehaviorFinished(int jobIndex) {
-        if (jobIndex >= activeTVBoxHandlers.Count) {
-            return;
-		}
+    public void OnTVBoxJobBehaviorFinished(TVBoxHandler jobTVBoxHandler) {
 
-        TVBoxHandler jobTVBoxHandler = activeTVBoxHandlers[jobIndex];
+        int jobIndex = activeTVBoxHandlers.FindIndex(x => x == jobTVBoxHandler);
         availableTVBoxHandlers.Add(jobTVBoxHandler);
 
         activeJobPartTypes.RemoveAt(jobIndex);
-        activeTVBoxHandlers.RemoveAt(jobIndex);
+        activeTVBoxHandlers.Remove(jobTVBoxHandler);
     }
 
     private void OnGameOver() {
         if (mainJobLaunchingCo != null) {
             StopCoroutine(mainJobLaunchingCo);
 		}
+
+        mainMusicAudioSource.pitch = 0.7f;
 
         spawnManager.OnGameOver();
 
@@ -220,11 +224,18 @@ public class BuildJobManager : MonoBehaviour {
         if (!activeJobPartTypes.Contains(objectType)) {
             return false;
 		}
-        // Otherwise, get first occurance of the object type in job list
-        int jobIndex = activeJobPartTypes.IndexOf(objectType);
-        TVBoxHandler jobTVBoxHandler = activeTVBoxHandlers[jobIndex];
+        // Otherwise, check all occurances of the object type in job list
+        for (int i = 0; i < activeJobPartTypes.Count; i++) {
+            if (activeJobPartTypes[i].Equals(objectType)) {
+                TVBoxHandler jobTVBoxHandler = activeTVBoxHandlers[i];
 
-        return jobTVBoxHandler.CheckIfJobIsActive();
+                if (jobTVBoxHandler.CheckIfJobIsActive()) {
+                    return true;
+				}
+            }
+		}
+
+        return false;
 	}
 
     public void OnValidObjectSubmitted(ConveyorPartHandler objectPartHandler) {
@@ -236,13 +247,27 @@ public class BuildJobManager : MonoBehaviour {
         if (!activeJobPartTypes.Contains(objectType)) {
             return;
         }
-        // Otherwise, get first occurance of the object type in job list
-        int jobIndex = activeJobPartTypes.IndexOf(objectType);
-        TVBoxHandler jobTVBoxHandler = activeTVBoxHandlers[jobIndex];
+        TVBoxHandler jobTVBoxHandler = null;
+        // Otherwise, find first valid occurances of the object type in job list
+        for (int i = 0; i < activeJobPartTypes.Count; i++) {
+            if (activeJobPartTypes[i].Equals(objectType)) {
+                TVBoxHandler currentJobTVBoxHandler = activeTVBoxHandlers[i];
+
+                if (currentJobTVBoxHandler.CheckIfJobIsActive()) {
+                    jobTVBoxHandler = currentJobTVBoxHandler;
+                    break;
+                }
+            }
+        }
+        if (jobTVBoxHandler == null) {
+            Debug.LogWarning("WARNING - Object considered valid was not labeled as active"
+                 + $"by any TV box handlers, object='{objectPartHandler.gameObject.name}'");
+            return;
+		}
 
         objectPartHandler.OnValidObjectSubmitted();
 
-        totalEarnings += jobTVBoxHandler.OnJobSubmitted(jobIndex);
+        totalEarnings += jobTVBoxHandler.OnJobSubmitted();
 
         totalEarningsText.text = GetEarningsString();
 
@@ -252,6 +277,9 @@ public class BuildJobManager : MonoBehaviour {
         foreach (ConveyorBeltHandler beltHandler in conveyorBeltHandlers) {
             beltHandler.SetSpeed(currentConveyorSpeed);
 		}
+
+        currentSpawnTimeMultiplier *= 0.9f;
+        spawnManager.SetSpawnTimeMultiplier(currentSpawnTimeMultiplier);
 
         currentTimeMultiplier *= 0.9f;
         foreach (TVBoxHandler boxHandler in tvBoxHandlers) {
@@ -274,13 +302,23 @@ public class BuildJobManager : MonoBehaviour {
     }
 
     private IEnumerator MainJobLaunchingCo() {
-        yield return new WaitForSecondsRealtime(0.5f);
+        mainMusicAudioSource.pitch = 2.0f;
+        Time.timeScale = 2.0f;
 
-        Time.timeScale = 10.0f;
+        foreach (ConveyorBeltHandler beltHandler in conveyorBeltHandlers) {
+            beltHandler.SetSpeed(2.0f);
+        }
+        spawnManager.SetSpawnTimeMultiplier(1.0f / 4.0f);
 
-        yield return new WaitForSecondsRealtime(4.0f);
+        yield return new WaitForSecondsRealtime(5.0f);
 
+        mainMusicAudioSource.pitch = 1.0f;
         Time.timeScale = 1.0f;
+
+        foreach (ConveyorBeltHandler beltHandler in conveyorBeltHandlers) {
+            beltHandler.SetSpeed(currentConveyorSpeed);
+        }
+        spawnManager.SetSpawnTimeMultiplier(currentSpawnTimeMultiplier);
 
         mainTVComponentObjects[0].SetActive(false);
         mainTVComponentObjects[1].SetActive(false);

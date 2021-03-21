@@ -24,14 +24,18 @@ public class PartsSpawnManager : MonoBehaviour {
         spawnTimeMultiplier = newMultiplier;
     }
 
+    public float GetSpawnTimeMultiplier() {
+        return spawnTimeMultiplier;
+    }
+
     private IEnumerator MainSpawnCo() {
         while (isActiveAndEnabled) {
-            yield return new WaitForSeconds(0.4f * spawnTimeMultiplier);
+            yield return new WaitForSeconds(0.3f * spawnTimeMultiplier);
             Transform firstRegionPart = Instantiate(allPartPrefabs[Random.Range(0, allPartPrefabs.Length)],
                 spawnRegionFirst.position,
                 Quaternion.Euler(Random.Range(0.0f, 360.0f), Random.Range(0.0f, 360.0f), Random.Range(0.0f, 360.0f))).transform;
             firstRegionPart.parent = allSpawnedPartsParent;
-            yield return new WaitForSeconds(0.2f * spawnTimeMultiplier);
+            yield return new WaitForSeconds(0.1f * spawnTimeMultiplier);
             Transform secondRegionPart = Instantiate(allPartPrefabs[Random.Range(0, allPartPrefabs.Length)],
                 spawnRegionSecond.position,
                 Quaternion.Euler(Random.Range(0.0f, 360.0f), Random.Range(0.0f, 360.0f), Random.Range(0.0f, 360.0f))).transform;
