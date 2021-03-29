@@ -35,7 +35,7 @@ public class GeneralSoundEffectPlayer : MonoBehaviour {
     }
 
     public void PlayFailureSound() {
-        GeneralAudioPool.Instance.PlaySound(failureAudioClip, 0.5f, Random.Range(0.8f, 1.0f));
+        GeneralAudioPool.Instance.PlaySound(failureAudioClip, 0.3f, Random.Range(0.9f, 1.1f));
     }
 
     public void PlayConnectSound() {

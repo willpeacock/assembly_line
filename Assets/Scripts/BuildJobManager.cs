@@ -77,21 +77,31 @@ public class BuildJobManager : MonoBehaviour {
             Application.Quit();
 		}
 
+        if (Application.isEditor) {
+            if (activeJobPartTypes.Count < maxActiveJobCount && Input.GetKeyDown("1")) {
+                BeginNextJob();
+			}
+		}
+
         // Wait for input to launch game
         if (!gameHasLaunched) {
             TryGetInputDevices();
-            float rightControllerTrigger = 0.0f;
-            float leftControllerTrigger = 0.0f;
+            bool buttonPressed = false;
 
             if (rightControllerDevice != null && rightControllerDevice.isValid) {
-                rightControllerDevice.TryGetFeatureValue(CommonUsages.trigger, out rightControllerTrigger);
+                rightControllerDevice.TryGetFeatureValue(CommonUsages.primaryButton, out buttonPressed);
+                if (!buttonPressed) {
+                    rightControllerDevice.TryGetFeatureValue(CommonUsages.secondaryButton, out buttonPressed);
+                }
             }
-            if (leftControllerDevice != null && leftControllerDevice.isValid) {
-                leftControllerDevice.TryGetFeatureValue(CommonUsages.trigger, out leftControllerTrigger);
+            if (!buttonPressed && leftControllerDevice != null && leftControllerDevice.isValid) {
+                leftControllerDevice.TryGetFeatureValue(CommonUsages.primaryButton, out buttonPressed);
+                if (!buttonPressed) {
+                    leftControllerDevice.TryGetFeatureValue(CommonUsages.secondaryButton, out buttonPressed);
+                }
             }
 
-            if (rightControllerTrigger >= 0.4f || leftControllerTrigger >= 0.4f
-                || Input.GetKeyDown(KeyCode.Space)) {
+            if (buttonPressed) {
                 BeginGame();
 
             }
@@ -273,12 +283,12 @@ public class BuildJobManager : MonoBehaviour {
 
         soundEffectPlayer.PlaySuccessSound();
 
-        currentConveyorSpeed *= 1.1f;
+        currentConveyorSpeed *= 1.05f;
         foreach (ConveyorBeltHandler beltHandler in conveyorBeltHandlers) {
             beltHandler.SetSpeed(currentConveyorSpeed);
 		}
 
-        currentSpawnTimeMultiplier *= 0.9f;
+        currentSpawnTimeMultiplier *= 0.95f;
         spawnManager.SetSpawnTimeMultiplier(currentSpawnTimeMultiplier);
 
         currentTimeMultiplier *= 0.9f;

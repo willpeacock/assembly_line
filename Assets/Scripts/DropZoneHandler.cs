@@ -4,7 +4,7 @@ using UnityEngine;
 
 public class DropZoneHandler : MonoBehaviour {
 	private LayerMask activeTriggerLayerMask = 0;
-	private GameObject objectWithinDropZone = null;
+	private ConveyorPartHandler objectWithinDropZone = null;
 	private string objectWithinDropZoneType = "none";
 
 	private ConveyorPartHandler partHandler;
@@ -41,29 +41,39 @@ public class DropZoneHandler : MonoBehaviour {
 		this.partHandler = partHandler;
 	}
 
+	public bool CheckIfObjectInDropZone() {
+		return objectWithinDropZone;
+	}
+
 	private bool LayerIsInLayerMask(int layer, LayerMask layerMask) {
 		return layerMask == (layerMask | (1 << layer));
 	}
 
-	private void OnTriggerEnter(Collider other) {
-		if (objectWithinDropZone == null && LayerIsInLayerMask(other.gameObject.layer, activeTriggerLayerMask)) {
+	private void CheckForObjectInTrigger(Collider other) {
+		if (objectWithinDropZone == null && LayerIsInLayerMask(other.gameObject.layer, activeTriggerLayerMask)
+			&& partHandler.CheckIfAttatchedDropZoneCanBeUsed()) {
 			if (checkForFullTriggerExitCoOn && checkForFullTriggerExitCo != null) {
 				StopCoroutine(checkForFullTriggerExitCo);
 				checkForFullTriggerExitCoOn = false;
 			}
 
 			dropZoneRenderersObject.SetActive(true);
-			objectWithinDropZone = other.transform.root.gameObject;
-			if (objectWithinDropZone.layer == LayerMask.NameToLayer("LeftHandPart")) {
+			objectWithinDropZone = other.transform.GetComponentInParent<ConveyorPartHandler>();
+			if (objectWithinDropZone.gameObject.layer == LayerMask.NameToLayer("LeftHandPart")) {
 				objectWithinDropZoneType = "left";
 			}
-			if (objectWithinDropZone.layer == LayerMask.NameToLayer("RightHandPart")) {
+			if (objectWithinDropZone.gameObject.layer == LayerMask.NameToLayer("RightHandPart")) {
 				objectWithinDropZoneType = "right";
 			}
 		}
 	}
 
+	private void OnTriggerEnter(Collider other) {
+		CheckForObjectInTrigger(other);
+	}
+
 	private void OnTriggerStay(Collider other) {
+		CheckForObjectInTrigger(other);
 		if (objectWithinDropZone != null && LayerIsInLayerMask(other.gameObject.layer, activeTriggerLayerMask)) {
 			if (checkForFullTriggerExitCoOn && checkForFullTriggerExitCo != null) {
 				StopCoroutine(checkForFullTriggerExitCo);

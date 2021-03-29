@@ -9,7 +9,7 @@ public class PartsSpawnManager : MonoBehaviour {
 
     private Transform allSpawnedPartsParent;
 
-    private float spawnTimeMultiplier = 1.0f;
+    private float spawnTimeMultiplier = 0.8f;
 
     public void BeginSpawning() {
         allSpawnedPartsParent = transform.GetChild(0);

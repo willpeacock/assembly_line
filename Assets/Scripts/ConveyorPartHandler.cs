@@ -17,6 +17,8 @@ public class ConveyorPartHandler : MonoBehaviour {
 
     public bool isCompleteObject = false;
 
+    private List<DropZoneHandler> allDropZoneHandlers = new List<DropZoneHandler>();
+
     private string startingPartType;
     private List<GameObject> acquiredSubPartObjects = new List<GameObject>();
 
@@ -83,6 +85,8 @@ public class ConveyorPartHandler : MonoBehaviour {
                 dropZoneHandler.SetActiveTriggerLayerMask(0);
                 // Notify it when an object is released to check if it is under a trigger
                 handGrabbingController.AddOnObjectReleasedListener(dropZoneHandler.OnObjectReleased);
+
+                allDropZoneHandlers.Add(dropZoneHandler);
             }
         }
     }
@@ -110,8 +114,17 @@ public class ConveyorPartHandler : MonoBehaviour {
         enabled = false;
     }
 
-    public void OnSubPartConnected(GameObject subPartObject, GameObject outsidePartObject) {
-        ConveyorPartHandler outsidePartHandler = outsidePartObject.GetComponent<ConveyorPartHandler>();
+    public bool CheckIfAttatchedDropZoneCanBeUsed() {
+        // If any other drop zone is active, can't use drop zone
+        foreach (DropZoneHandler dropZoneHandler in allDropZoneHandlers) {
+            if (dropZoneHandler.CheckIfObjectInDropZone()) {
+                return false;
+			}
+		}
+        return true;
+	}
+
+    public void OnSubPartConnected(GameObject subPartObject, ConveyorPartHandler outsidePartHandler) {
         if (outsidePartHandler != null) {
             outsidePartHandler.OnPartConnectedAsSubPart();
         }

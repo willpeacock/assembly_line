@@ -394,26 +394,51 @@ MonoBehaviour:
     - dumbbell
     - propeller_hat
     - skateboard
+    - chair
+    - globe
+    - headphones
+    - wine_glass
+    - jet
     m_values:
     - 20
     - 10
+    - 15
+    - 35
+    - 20
+    - 30
     - 10
+    - 15
     - 35
   tvSeparatedPartsPrefabs:
   - {fileID: 3643692392268462957, guid: 256fb15ff3e35e54d9715d163729afe6, type: 3}
   - {fileID: 8859299514156574558, guid: 40876ce8e70ac304da48324ccc6cede6, type: 3}
   - {fileID: 6624739784487064063, guid: ae1e77f27d79c3340b2b940b36b73507, type: 3}
   - {fileID: 6170812092750938484, guid: df2b413242cf86a4b96ddf4279a00ebc, type: 3}
+  - {fileID: 6568534981848741290, guid: 989791ae8f02aef4eb11948e91d07e89, type: 3}
+  - {fileID: 6122039284050863292, guid: f4fd0d3c3d648a94fa9e4dd9c0e886f1, type: 3}
+  - {fileID: 5497237797081700480, guid: c5f9004ee25e6b24db1f919ea7a592f1, type: 3}
+  - {fileID: 2114110655238842018, guid: 7e26094666967c940abca43944e461de, type: 3}
+  - {fileID: 7474524292177613415, guid: eaaefcc1141ac1d48b064d36d019bf61, type: 3}
   tvCompletedObjectPrefabs:
   - {fileID: 3821377291461619362, guid: 788eab4d75faf8847adbe3ff58acfca4, type: 3}
   - {fileID: 4777361278076648105, guid: e301de7d30048c0418d9e8ae45a7b19f, type: 3}
   - {fileID: 8777142785363465098, guid: 6b1486733828c78418133d5c9fc4a1f6, type: 3}
   - {fileID: 1712777022278675518, guid: 11b78fa19847e204d83aeb461a2c6976, type: 3}
+  - {fileID: 803596134213776026, guid: 40b5c2ff18b8add468429cd45ed8d22b, type: 3}
+  - {fileID: 1850888681249377328, guid: 90125350c36aa8b4baffe9e7256d4bee, type: 3}
+  - {fileID: 3792870832024796132, guid: 0521b80008bf8dc44bd46ba7ac13eeaf, type: 3}
+  - {fileID: 8552343011885126532, guid: c0c5fac7b1ea5dd4f9ee1e3e75513146, type: 3}
+  - {fileID: 195777103959337518, guid: 64511eae5677b7f4a987af3e90357958, type: 3}
   tvHeaderPrefabs:
   - {fileID: 8873204522226482772, guid: 5debe4e233ee0c844bc2faeaaa9be89b, type: 3}
   - {fileID: 3517038153418090105, guid: cf95696a2a70aa0499f64521b480123f, type: 3}
   - {fileID: 1180372114653717251, guid: f20d6f1b74ef74f4f94f56d456b05ae9, type: 3}
   - {fileID: 1507862434436119826, guid: 2b50c89748126f140938d53162ab3de4, type: 3}
+  - {fileID: 3562649595543665069, guid: 1782f43d579ea044fb062ededd5492f5, type: 3}
+  - {fileID: 5832394053654444541, guid: 3402bf64a181c204586861ddfced3bca, type: 3}
+  - {fileID: 2027162422311380104, guid: e995528e77e5cd14caed053e0b661bb0, type: 3}
+  - {fileID: 6364187417221934153, guid: 0390283eebe246a4693e03fb44b22151, type: 3}
+  - {fileID: 7205264053401628494, guid: 7e2f3832159c1f54ab49f2f40587375c, type: 3}
   tvBoxTransform: {fileID: 3235405744337621632}
   anchorTransform: {fileID: 7609584426305805952}
   ropeLineRenderer: {fileID: 7609584425277429118}

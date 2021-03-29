@@ -44,9 +44,9 @@ public class TVBoxHandler : MonoBehaviour {
 
     private const float rotateTVObjectsSpeed = 10.0f;
 
-    private float jobTimeMultiplier = 5.0f;
+    private float jobTimeMultiplier = 6.5f;
 
-    private const float baseJobTime = 20.0f;
+    private const float baseJobTime = 25.0f;
     void Start() {
         jobPartTypes = new List<string>(jobPartPricingByType.Keys);
 
