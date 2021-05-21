@@ -7,18 +7,27 @@ using DG.Tweening;
 public class GeneralPhysicsObjectHandler : MonoBehaviour {
     public string materialType = "metal";
 
+    private bool objectIsEnabled = true;
+
     private bool hasTriggeredDissolve = false;
-    private bool hasBeenDestroyed = false;
 
     private Shader dissolveShader = null;
 
     private ConveyorPartHandler partHandler;
+
+    private Renderer[] allObjectRenderers;
     private Rigidbody[] allRBs;
+    private float[] allRBInitialMasses;
+    private List<Material[]> allDefaultMaterialsPerRenderer;
+    private List<Material[]> allDissolveMaterialsPerRenderer;
+    private List<Material> allDissolveMaterials;
 
     private Tween dissolveTween;
     private Vector3 randomTorqueDir = Vector3.up;
 
     private LayerMask dissolveOnContactLayerMask = 0;
+
+    private Dictionary<Transform, int> originalLayerByChildObject = new Dictionary<Transform, int>();
 
     private GeneralSoundEffectPlayer generalSoundEffectPlayer;
 
@@ -33,8 +42,11 @@ public class GeneralPhysicsObjectHandler : MonoBehaviour {
     private const float dissolveTime = 4.0f;
     private const float dissolveUpwardsForce = 1.5f;
     private const float dissolveTorque = 5.0f;
-    void Start() {
+    public void InitializeHandler() {
         dissolveOnContactLayerMask = LayerMask.GetMask(new string[] { "FactoryObject", "Floor", "Wall" });
+
+        originalLayerByChildObject = new Dictionary<Transform, int>();
+        RecursiveStoreInitialChildLayer(transform);
 
         dissolveShader = Shader.Find(dissolveShaderPath);
         if (dissolveShader == null) {
@@ -44,10 +56,52 @@ public class GeneralPhysicsObjectHandler : MonoBehaviour {
         generalSoundEffectPlayer = FindObjectOfType<GeneralSoundEffectPlayer>();
 
         partHandler = GetComponent<ConveyorPartHandler>();
+
+        allRBs = GetComponentsInChildren<Rigidbody>(true);
+        allRBInitialMasses = new float[allRBs.Length];
+        for (int i = 0; i < allRBs.Length; i++) {
+            allRBInitialMasses[i] = allRBs[i].mass;
+		}
+
+        allObjectRenderers = GetComponentsInChildren<Renderer>(true);
+        allDefaultMaterialsPerRenderer = new List<Material[]>();
+        foreach (Renderer objectRenderer in allObjectRenderers) {
+            // Create copies of all original materials in the renderer
+            Material[] rendererMaterials = new Material[objectRenderer.materials.Length];
+            for (int i = 0; i < objectRenderer.materials.Length; i++) {
+                // Make a copy then add it to stored array
+                Material newMaterial = new Material(objectRenderer.materials[i]);
+                rendererMaterials[i] = newMaterial;
+            }
+
+            allDefaultMaterialsPerRenderer.Add(rendererMaterials);
+        }
+
+        allDissolveMaterials = new List<Material>();
+        allDissolveMaterialsPerRenderer = new List<Material[]>();
+        foreach (Renderer objectRenderer in allObjectRenderers) {
+            // Create copies of all original materials in the renderer
+            Material[] rendererMaterials = new Material[objectRenderer.materials.Length];
+            for (int i = 0; i < objectRenderer.materials.Length; i++) {
+                // Make a copy then change the shader, then add it to stored array
+                Material newMaterial = new Material(objectRenderer.materials[i]);
+                newMaterial.shader = dissolveShader;
+                newMaterial.SetFloat("_DissolveRatio", 0.0f);
+                rendererMaterials[i] = newMaterial;
+
+                allDissolveMaterials.Add(newMaterial);
+            }
+
+            allDissolveMaterialsPerRenderer.Add(rendererMaterials);
+        }
     }
 
     void Update() {
-        if (!hasTriggeredDissolve && !hasBeenDestroyed
+        if (!objectIsEnabled) {
+            return;
+		}
+
+        if (!hasTriggeredDissolve
             && gameObject.layer != LayerMask.NameToLayer("LeftHandPart")
             && gameObject.layer != LayerMask.NameToLayer("RightHandPart")
             && transform.position.y < outOfBoundsCutoffYPos) {
@@ -56,12 +110,77 @@ public class GeneralPhysicsObjectHandler : MonoBehaviour {
     }
 
     private void FixedUpdate() {
-        if (hasTriggeredDissolve && !hasBeenDestroyed) {
+        if (!objectIsEnabled) {
+            return;
+        }
+
+        if (hasTriggeredDissolve) {
             foreach (Rigidbody rb in allRBs) {
                 rb.AddForce(Vector3.up * dissolveUpwardsForce);
 
                 rb.AddTorque(randomTorqueDir * dissolveTorque);
             }
+        }
+    }
+
+    public void OnPartEnabled() {
+        RecursiveRestoreInitialChildLayer(transform);
+
+        hasTriggeredDissolve = false;
+        canPlayAudioAfterRelease = false;
+        if (delayBeforeHitSoundCo != null) {
+            StopCoroutine(delayBeforeHitSoundCo);
+            delayBeforeHitSoundCo = null;
+        }
+        delayBeforeHitSoundCoOn = false;
+
+        for (int i = 0; i < allRBs.Length; i++) {
+            Rigidbody rb = allRBs[i];
+
+            rb.isKinematic = false;
+            rb.useGravity = true;
+            rb.mass = allRBInitialMasses[i];
+        }
+
+        for (int i = 0; i < allObjectRenderers.Length; i++) {
+            Renderer objectRenderer = allObjectRenderers[i];
+            objectRenderer.materials = allDefaultMaterialsPerRenderer[i];
+        }
+
+        objectIsEnabled = true;
+    }
+
+    public void OnPartDisabled() {
+        objectIsEnabled = false;
+
+        foreach (Rigidbody rb in allRBs) {
+            rb.isKinematic = true;
+            rb.useGravity = false;
+        }
+
+        if (dissolveTween != null && dissolveTween.IsActive()) {
+            dissolveTween.Kill();
+        }
+    }
+
+    private void RecursiveStoreInitialChildLayer(Transform parentTransform) {
+        originalLayerByChildObject.Add(parentTransform, parentTransform.gameObject.layer);
+
+        foreach (Transform child in parentTransform) {
+            RecursiveStoreInitialChildLayer(child);
+        }
+    }
+
+    private void RecursiveRestoreInitialChildLayer(Transform parentTransform) {
+        if (originalLayerByChildObject.ContainsKey(parentTransform)) {
+            parentTransform.gameObject.layer = originalLayerByChildObject[parentTransform];
+        }
+        else {
+            Debug.LogError($"{name}: Did not have stored initial layer for child object '{parentTransform.gameObject.name}'");
+		}
+
+        foreach (Transform child in parentTransform) {
+            RecursiveRestoreInitialChildLayer(child);
         }
     }
 
@@ -84,8 +203,6 @@ public class GeneralPhysicsObjectHandler : MonoBehaviour {
         gameObject.layer = LayerMask.NameToLayer("DissolvedObject");
         SetChildrenToLayer(transform, LayerMask.NameToLayer("DissolvedObject"));
 
-        allRBs = GetComponentsInChildren<Rigidbody>();
-
         if (dissolveShader != null) {
             foreach (Rigidbody rb in allRBs) {
                 rb.useGravity = false;
@@ -93,24 +210,22 @@ public class GeneralPhysicsObjectHandler : MonoBehaviour {
             }
             randomTorqueDir = Random.insideUnitSphere;
 
-            List<Material> allMaterials = new List<Material>();
-            Renderer[] allObjectRenderers = GetComponentsInChildren<Renderer>();
-            foreach (Renderer objectRenderer in allObjectRenderers) {
-                allMaterials.AddRange(objectRenderer.materials);
+            for (int i = 0; i < allObjectRenderers.Length; i++) {
+                Renderer objectRenderer = allObjectRenderers[i];
+                objectRenderer.materials = allDissolveMaterialsPerRenderer[i];
             }
 
             Color greenColor = new Color(0, Mathf.Pow(2, 6), 0);
-            foreach (Material rendererMaterial in allMaterials) {
-                rendererMaterial.shader = dissolveShader;
+            foreach (Material rendererMaterial in allDissolveMaterials) {
                 rendererMaterial.SetFloat("_DissolveRatio", 0.0f);
                 if (objectSubmittedDissolve) {
                     rendererMaterial.SetColor("_GlowColor", greenColor);
                 }
             }
             dissolveTween = DOTween.To(
-                () => allMaterials[0].GetFloat("_DissolveRatio"),
+                () => allDissolveMaterials[0].GetFloat("_DissolveRatio"),
                 x => {
-                    foreach (Material rendererMaterial in allMaterials) {
+                    foreach (Material rendererMaterial in allDissolveMaterials) {
                         rendererMaterial.SetFloat("_DissolveRatio", x);
                     }
                 },
@@ -125,11 +240,7 @@ public class GeneralPhysicsObjectHandler : MonoBehaviour {
     }
 
     private void OnObjectDestroy() {
-        if (dissolveTween != null && dissolveTween.IsActive()) {
-            dissolveTween.Kill();
-        }
-        hasBeenDestroyed = true;
-        Destroy(gameObject);
+        partHandler.OnPartDisabled();
     }
 
     private bool LayerIsInLayerMask(int layer, LayerMask layerMask) {
@@ -150,7 +261,11 @@ public class GeneralPhysicsObjectHandler : MonoBehaviour {
     }
 
     private void OnCollisionEnter(Collision collision) {
-		if (!hasTriggeredDissolve && !hasBeenDestroyed
+        if (!objectIsEnabled) {
+            return;
+		}
+
+		if (!hasTriggeredDissolve
             && gameObject.layer != LayerMask.NameToLayer("LeftHandPart")
             && gameObject.layer != LayerMask.NameToLayer("RightHandPart")
             && LayerIsInLayerMask(collision.gameObject.layer, dissolveOnContactLayerMask)) {

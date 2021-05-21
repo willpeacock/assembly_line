@@ -81,6 +81,8 @@ public class HandGrabbingController : MonoBehaviour {
 
         leftHandDirectInteractor.interactionLayerMask = defaultLayerMask;
 
+        leftHandDirectInteractor.ForceClearKnownTargets();
+
         onObjectReleased.Invoke("left");
     }
 
@@ -116,6 +118,8 @@ public class HandGrabbingController : MonoBehaviour {
         }
 
         rightHandDirectInteractor.interactionLayerMask = defaultLayerMask;
+
+        rightHandDirectInteractor.ForceClearKnownTargets();
 
         onObjectReleased.Invoke("right");
     }

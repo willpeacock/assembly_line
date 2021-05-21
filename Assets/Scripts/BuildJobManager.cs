@@ -5,8 +5,14 @@ using TMPro;
 using UnityEngine.SceneManagement;
 using UnityEngine.XR;
 
+[System.Serializable]
+public class PrefabsGroup {
+    public List<GameObject> list;
+}
+
 public class BuildJobManager : MonoBehaviour {
     public List<string> jobPartTypes;
+    public List<PrefabsGroup> jobIndividualPartPrefabs;
     public TVBoxHandler[] tvBoxHandlers;
     public GameObject earningsHeaderObject;
     public GameObject gameOverHeaderObject;
@@ -14,13 +20,20 @@ public class BuildJobManager : MonoBehaviour {
     public TMP_Text totalEarningsText;
     public ConveyorBeltHandler[] conveyorBeltHandlers;
     public GameObject[] mainTVComponentObjects;
+    public GameObject[] otherPreGameTVComponentsObjects;
+    public TVBoxHandler[] otherPreGameTVHandlers;
     public PartsSpawnManager spawnManager;
     public XRNode rightController;
     public XRNode leftController;
     public AudioSource mainMusicAudioSource;
+    public AudioClip[] backgroundMusicSongs;
+    public AudioSource conveyorBeltAudioSource;
+    public AudioClip conveyorBeltShutOffClip;
 
     public List<string> activeJobPartTypes;
     private List<TVBoxHandler> activeTVBoxHandlers;
+
+    private int activeBackgroundMusicSongIndex = 0;
 
     private List<TVBoxHandler> availableTVBoxHandlers;
 
@@ -37,6 +50,7 @@ public class BuildJobManager : MonoBehaviour {
     private float currentConveyorSpeed = 0.0f;
     private float currentTimeMultiplier = 0.0f;
     private float currentSpawnTimeMultiplier = 0.0f;
+    private float currentEarningsMultiplier = 1.0f;
 
     private InputDevice rightControllerDevice;
     private InputDevice leftControllerDevice;
@@ -70,6 +84,8 @@ public class BuildJobManager : MonoBehaviour {
 
         rightControllerDevice = InputDevices.GetDeviceAtXRNode(rightController);
         leftControllerDevice = InputDevices.GetDeviceAtXRNode(leftController);
+
+        StartCoroutine(BackgroundMusicPlayerCo());
     }
 
     void Update() {
@@ -84,7 +100,7 @@ public class BuildJobManager : MonoBehaviour {
 		}
 
         // Wait for input to launch game
-        if (!gameHasLaunched) {
+        /*if (!gameHasLaunched) {
             TryGetInputDevices();
             bool buttonPressed = false;
 
@@ -105,24 +121,29 @@ public class BuildJobManager : MonoBehaviour {
                 BeginGame();
 
             }
-		}
+		}*/
         // Wait for input on game over
-        else if (!gameIsActive && !isReloadingScene) {
+        if (!gameIsActive && !isReloadingScene) {
             TryGetInputDevices();
-            float rightControllerTrigger = 0.0f;
-            float leftControllerTrigger = 0.0f;
+            bool buttonPressed = false;
 
             if (rightControllerDevice != null && rightControllerDevice.isValid) {
-                rightControllerDevice.TryGetFeatureValue(CommonUsages.trigger, out rightControllerTrigger);
+                rightControllerDevice.TryGetFeatureValue(CommonUsages.primaryButton, out buttonPressed);
+                if (!buttonPressed) {
+                    rightControllerDevice.TryGetFeatureValue(CommonUsages.secondaryButton, out buttonPressed);
+                }
             }
-            if (leftControllerDevice != null && leftControllerDevice.isValid) {
-                leftControllerDevice.TryGetFeatureValue(CommonUsages.trigger, out leftControllerTrigger);
+            if (!buttonPressed && leftControllerDevice != null && leftControllerDevice.isValid) {
+                leftControllerDevice.TryGetFeatureValue(CommonUsages.primaryButton, out buttonPressed);
+                if (!buttonPressed) {
+                    leftControllerDevice.TryGetFeatureValue(CommonUsages.secondaryButton, out buttonPressed);
+                }
             }
 
-            if (rightControllerTrigger >= 0.4f || leftControllerTrigger >= 0.4f
-                || Input.GetKeyDown(KeyCode.Space)) {
+            if (buttonPressed || Input.GetKeyDown(KeyCode.Space)) {
                 SceneManager.LoadScene(SceneManager.GetActiveScene().name);
                 isReloadingScene = true;
+
             }
 		}
     }
@@ -144,9 +165,18 @@ public class BuildJobManager : MonoBehaviour {
         mainTVComponentObjects[1].SetActive(true);
         mainTVComponentObjects[2].SetActive(false);
 
+        foreach (TVBoxHandler tvBoxHandler in otherPreGameTVHandlers) {
+            tvBoxHandler.ShutOffScreen();
+        }
+        foreach (GameObject otherPreGameTVComponentsObject in otherPreGameTVComponentsObjects) {
+            otherPreGameTVComponentsObject.SetActive(false);
+        }
+
         foreach (ConveyorBeltHandler beltHandler in conveyorBeltHandlers) {
             beltHandler.SetSpeed(currentConveyorSpeed);
         }
+
+        //conveyorBeltAudioSource.Play();
 
         spawnManager.BeginSpawning();
 
@@ -207,6 +237,10 @@ public class BuildJobManager : MonoBehaviour {
         foreach (ConveyorBeltHandler beltHandler in conveyorBeltHandlers) {
             beltHandler.OnGameOver();
 		}
+
+        //conveyorBeltAudioSource.FadeOut();
+
+        GeneralAudioPool.Instance.PlaySound(conveyorBeltShutOffClip, 0.2f, 1.0f);
 
         gameIsActive = false;
 	}
@@ -287,6 +321,8 @@ public class BuildJobManager : MonoBehaviour {
         foreach (ConveyorBeltHandler beltHandler in conveyorBeltHandlers) {
             beltHandler.SetSpeed(currentConveyorSpeed);
 		}
+        mainMusicAudioSource.pitch = Mathf.Clamp(mainMusicAudioSource.pitch * 1.02f, 1.0f, 1.75f);
+        //conveyorBeltAudioSource.pitch = Mathf.Clamp(conveyorBeltAudioSource.pitch * 1.02f, 1.0f, 1.5f);
 
         currentSpawnTimeMultiplier *= 0.95f;
         spawnManager.SetSpawnTimeMultiplier(currentSpawnTimeMultiplier);
@@ -296,8 +332,27 @@ public class BuildJobManager : MonoBehaviour {
             boxHandler.SetTimeMultiplier(currentTimeMultiplier);
         }
 
+        currentEarningsMultiplier *= 1.1f;
+        foreach (TVBoxHandler boxHandler in tvBoxHandlers) {
+            boxHandler.SetCurrentEarningsMultiplier(currentEarningsMultiplier);
+        }
+
         Debug.Log($"<color=cyan>SUBMITTED JOB for {objectType}</color>");
     }
+
+    public GameObject AttemptGetJobPartPrefabToSpawn() {
+        // In order of oldest activated job first, give a 1/8 chance for each build to spawn one of its parts
+        foreach (string activeJobPartType in activeJobPartTypes) {
+            if (Random.Range(0, 8) == 0) {
+                int jobTypeIndex = jobPartTypes.IndexOf(activeJobPartType);
+                List<GameObject> jobPartsList = jobIndividualPartPrefabs[jobTypeIndex].list;
+                return jobPartsList[Random.Range(0, jobPartsList.Count)];
+
+            }
+		}
+        // If reached this point, return and leave it open to anything in spawnable pool
+        return null;
+	}
 
     private string GetEarningsString() {
         string startingString = $"${System.Math.Round(totalEarnings, 2)}";
@@ -313,6 +368,7 @@ public class BuildJobManager : MonoBehaviour {
 
     private IEnumerator MainJobLaunchingCo() {
         mainMusicAudioSource.pitch = 2.0f;
+        //conveyorBeltAudioSource.pitch = 2.0f;
         Time.timeScale = 2.0f;
 
         foreach (ConveyorBeltHandler beltHandler in conveyorBeltHandlers) {
@@ -323,6 +379,7 @@ public class BuildJobManager : MonoBehaviour {
         yield return new WaitForSecondsRealtime(5.0f);
 
         mainMusicAudioSource.pitch = 1.0f;
+        //conveyorBeltAudioSource.pitch = 1.0f;
         Time.timeScale = 1.0f;
 
         foreach (ConveyorBeltHandler beltHandler in conveyorBeltHandlers) {
@@ -351,4 +408,26 @@ public class BuildJobManager : MonoBehaviour {
             yield return new WaitForSeconds(Random.Range(delayBeforeNextJobRange.x, delayBeforeNextJobRange.y));
         }
     }
+
+    private IEnumerator BackgroundMusicPlayerCo() {
+        activeBackgroundMusicSongIndex = Random.Range(0, backgroundMusicSongs.Length);
+
+        mainMusicAudioSource.clip = backgroundMusicSongs[activeBackgroundMusicSongIndex];
+        mainMusicAudioSource.Play();
+
+        while (isActiveAndEnabled) {
+            while (mainMusicAudioSource.isPlaying) {
+                yield return null;
+			}
+
+            yield return new WaitForSecondsRealtime(0.5f);
+
+            activeBackgroundMusicSongIndex = (activeBackgroundMusicSongIndex < backgroundMusicSongs.Length-1) ? activeBackgroundMusicSongIndex+1 : 0;
+
+            mainMusicAudioSource.clip = backgroundMusicSongs[activeBackgroundMusicSongIndex];
+            mainMusicAudioSource.Play();
+
+            yield return null;
+        }
+	}
 }

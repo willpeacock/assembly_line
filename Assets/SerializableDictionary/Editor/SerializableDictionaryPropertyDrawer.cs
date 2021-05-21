@@ -11,6 +11,18 @@ public class GameObjectSubPartInfoDictionaryPropertyDrawer : SerializableDiction
 [CustomPropertyDrawer(typeof(StringFloatDictionary))]
 public class StringFloatDictionaryPropertyDrawer : SerializableDictionaryPropertyDrawer { }
 
+[CustomPropertyDrawer(typeof(GameObjectListStorage))]
+public class GameObjectListStoragePropertyDrawer : SerializableDictionaryStoragePropertyDrawer { }
+
+[CustomPropertyDrawer(typeof(PrefabToInstancesDictionary))]
+public class PrefabToInstancesDictionaryPropertyDrawer : SerializableDictionaryPropertyDrawer { }
+
+[CustomPropertyDrawer(typeof(GameObjectGameObjectDictionary))]
+public class GameObjectGameObjectDictionaryPropertyDrawer : SerializableDictionaryPropertyDrawer { }
+
+[CustomPropertyDrawer(typeof(GameObjectTransformDictionary))]
+public class GameObjectTransformDictionaryPropertyDrawer : SerializableDictionaryPropertyDrawer { }
+
 public class SerializableDictionaryPropertyDrawer : PropertyDrawer
 {
 	const string KeysFieldName = "m_keys";

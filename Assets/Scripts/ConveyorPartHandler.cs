@@ -6,6 +6,7 @@ using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.XR.Interaction.Toolkit;
 
+
 [Serializable]
 public class GameObjectSubPartInfoDictionary : SerializableDictionary<GameObject, SubPartInfo> { }
 
@@ -25,6 +26,7 @@ public class ConveyorPartHandler : MonoBehaviour {
     private List<string> allAttatchedBasePartTypes = new List<string>();
 
     private HandGrabbingController handGrabbingController;
+    private PartsSpawnManager partsSpawnManager;
 
     private GeneralSoundEffectPlayer generalSoundEffectPlayer;
 
@@ -38,8 +40,19 @@ public class ConveyorPartHandler : MonoBehaviour {
     private Collider mainPartColl = null;
     private Rigidbody rb = null;
 
+    private LayerMask initialInteractableGrabbableLayerMask;
+
+    private bool hasInitializedOnce = false;
+
     private const float throwAudioVelocityCutoff = 1.0f;
-    void Start() {
+
+	private void Start() {
+		if (!hasInitializedOnce) {
+            InitializeHandler();
+		}
+	}
+	public void InitializeHandler() {
+        startingPartType = partType;
         allAttatchedBasePartTypes.Add(startingPartType);
 
         justLeftHandPartLayerMask = LayerMask.GetMask(new string[] { "LeftHandPart" });
@@ -55,8 +68,6 @@ public class ConveyorPartHandler : MonoBehaviour {
         rb = GetComponent<Rigidbody>();
 
         generalSoundEffectPlayer = FindObjectOfType<GeneralSoundEffectPlayer>();
-
-        startingPartType = partType;
 
         // If it has sub parts to manage...
         if (subPartInfoByObject.Count > 0) {
@@ -89,18 +100,73 @@ public class ConveyorPartHandler : MonoBehaviour {
                 allDropZoneHandlers.Add(dropZoneHandler);
             }
         }
+
+        initialInteractableGrabbableLayerMask = grabInteractableScript.interactionLayerMask;
+
+        partsSpawnManager = FindObjectOfType<PartsSpawnManager>();
+
+        physicsObjectHandler.InitializeHandler();
+
+        // Initialize with all parts disabled
+        OnPartDisabled(false);
+
+        hasInitializedOnce = true;
     }
 
-	public void OnValidObjectSubmitted() {
-		partType = "invalid";
+    public void OnPartEnabled() {
+        // Restore to original part type
+        partType = startingPartType;
+        // Restore to initial state of other tracked attributes
+        acquiredSubPartObjects = new List<GameObject>();
+        allAttatchedBasePartTypes = new List<string>();
+        allAttatchedBasePartTypes.Add(startingPartType);
+        isCompleteObject = false;
 
-        physicsObjectHandler.OnObjectDissolve(true);
+        // If it has sub parts to manage...
+        if (subPartInfoByObject.Count > 0) {
+            foreach (GameObject subPart in subPartInfoByObject.Keys) {
+                Collider subPartBaseColl = subPart.GetComponent<Collider>();
+                if (subPartBaseColl != null) {
+                    subPartBaseColl.enabled = false;
+                }
+                // Disable the extra colls and renderers
+                subPart.transform.GetChild(0).gameObject.SetActive(false);
+                Renderer subPartRenderer = subPart.GetComponent<Renderer>();
+                if (subPartRenderer != null) {
+                    subPartRenderer.enabled = false;
+                }
+
+                subPart.transform.GetChild(1).GetChild(1).gameObject.SetActive(false);
+
+                DropZoneHandler dropZoneHandler = subPart.transform.GetChild(1).GetChild(0).GetComponent<DropZoneHandler>();
+                dropZoneHandler.SetActiveTriggerLayerMask(0);
+            }
+        }
+
+        grabInteractableScript.interactionLayerMask = initialInteractableGrabbableLayerMask;
+        grabInteractableScript.enabled = true;
+        if (mainRenderer != null) {
+            mainRenderer.enabled = true;
+        }
+        if (mainPartColl != null) {
+            mainPartColl.enabled = true;
+        }
+        // Enable extra colliders and renderers
+        for (int i = 0; i < transform.childCount; i++) {
+            transform.GetChild(i).gameObject.SetActive(true);
+        }
+        rb.isKinematic = false;
+        rb.useGravity = true;
+
+        physicsObjectHandler.OnPartEnabled();
     }
 
-    public void OnPartConnectedAsSubPart() {
+    public void OnPartDisabled(bool sendsSignalToManager = true) {
         grabInteractableScript.interactionLayerMask = 0;
         grabInteractableScript.enabled = false;
-        mainRenderer.enabled = false;
+        if (mainRenderer != null) {
+            mainRenderer.enabled = false;
+        }
         if (mainPartColl != null) {
             mainPartColl.enabled = false;
         }
@@ -111,7 +177,25 @@ public class ConveyorPartHandler : MonoBehaviour {
         rb.isKinematic = true;
         rb.useGravity = false;
 
-        enabled = false;
+        physicsObjectHandler.OnPartDisabled();
+
+        transform.localPosition = Vector3.zero;
+        transform.localRotation = Quaternion.identity;
+
+        // Add it back to the available pool when disabled
+        if (sendsSignalToManager) {
+            partsSpawnManager.OnPartInstanceDisabled(gameObject);
+		}
+    }
+
+    public void OnValidObjectSubmitted() {
+		partType = "invalid";
+
+        physicsObjectHandler.OnObjectDissolve(true);
+    }
+
+    public void OnPartConnectedAsSubPart() {
+        OnPartDisabled();
     }
 
     public bool CheckIfAttatchedDropZoneCanBeUsed() {
@@ -125,9 +209,6 @@ public class ConveyorPartHandler : MonoBehaviour {
 	}
 
     public void OnSubPartConnected(GameObject subPartObject, ConveyorPartHandler outsidePartHandler) {
-        if (outsidePartHandler != null) {
-            outsidePartHandler.OnPartConnectedAsSubPart();
-        }
 
         subPartObject.transform.GetChild(1).GetChild(1).GetComponent<Renderer>().enabled = false;
         DropZoneHandler dropZoneHandler = subPartObject.transform.GetChild(1).GetChild(0).GetComponent<DropZoneHandler>();
@@ -157,6 +238,9 @@ public class ConveyorPartHandler : MonoBehaviour {
             allAttatchedBasePartTypes = sortedBasePartTypes;
 
             partType = string.Join("@", sortedBasePartTypes);
+
+            // Free the other part instance
+            outsidePartHandler.OnPartConnectedAsSubPart();
         }
 
         // Update controllers on the potentially changed objects being held

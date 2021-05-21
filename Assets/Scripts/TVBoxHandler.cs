@@ -16,6 +16,7 @@ public class TVBoxHandler : MonoBehaviour {
     public LineRenderer ropeLineRenderer;
     public GameObject[] screenObjects;
     public Transform pairedTVCameraSetup;
+    public bool usedForPreGameInstructions = false;
 
     private TMP_Text timeRemainingTextMesh;
     private TMP_Text mainEarningsTextMesh;
@@ -41,6 +42,8 @@ public class TVBoxHandler : MonoBehaviour {
     private float startingTimer;
     private float startingEarnings;
     private float currentEarnings;
+
+    private float currentEarningsMultiplier;
 
     private const float rotateTVObjectsSpeed = 10.0f;
 
@@ -71,8 +74,6 @@ public class TVBoxHandler : MonoBehaviour {
 
         mainEarningsTextMesh = pairedTVCameraSetup.transform.GetChild(7).GetComponent<TMP_Text>();
 
-        pairedTVCameraSetup.gameObject.SetActive(false);
-
         ropeLineRenderer.positionCount = 2;
         ropeLineRenderer.SetPositions(newRopePositions);
 
@@ -84,9 +85,18 @@ public class TVBoxHandler : MonoBehaviour {
         //tvRB.angularDrag = Random.Range(0.1f, 0.2f);
         springJoint.spring = Random.Range(100.0f, 200.0f);
 
-        // Start with screen off
-        screenObjects[0].SetActive(false);
-        screenObjects[1].SetActive(true);
+        if (usedForPreGameInstructions) {
+            pairedTVCameraSetup.gameObject.SetActive(true);
+            // Start with screen off
+            screenObjects[0].SetActive(true);
+            screenObjects[1].SetActive(false);
+        }
+        else {
+            pairedTVCameraSetup.gameObject.SetActive(false);
+            // Start with screen off
+            screenObjects[0].SetActive(false);
+            screenObjects[1].SetActive(true);
+        }
     }
 
     void Update() {
@@ -130,7 +140,7 @@ public class TVBoxHandler : MonoBehaviour {
 
         pairedTVCameraSetup.gameObject.SetActive(true);
 
-        currentEarnings = jobPartPricingByType[jobPartType];
+        currentEarnings = jobPartPricingByType[jobPartType] * currentEarningsMultiplier;
         startingEarnings = currentEarnings;
 
         currentTimer = Mathf.CeilToInt(jobTimeMultiplier * (baseJobTime + startingEarnings / 4.0f));
@@ -138,6 +148,8 @@ public class TVBoxHandler : MonoBehaviour {
 
         timeRemainingTextMesh.text = $"{Mathf.CeilToInt(currentTimer)}";
         mainEarningsTextMesh.text = GetEarningsString();
+
+        pairedTVCameraSetup.gameObject.SetActive(true);
 
         // Turn screen on
         screenObjects[0].SetActive(true);
@@ -172,10 +184,13 @@ public class TVBoxHandler : MonoBehaviour {
         Destroy(headerTransform.GetChild(0).gameObject);
     }
 
-    private void ShutOffScreen() {
+    public void ShutOffScreen() {
         // Turn screen off
         screenObjects[0].SetActive(false);
         screenObjects[1].SetActive(true);
+
+        pairedTVCameraSetup.gameObject.SetActive(false);
+
         jobFailedTextObject.SetActive(false);
         jobCompletedTextObject.SetActive(false);
     }
@@ -208,6 +223,10 @@ public class TVBoxHandler : MonoBehaviour {
     public float GetTimeMultiplier() {
         return jobTimeMultiplier;
 	}
+
+    public void SetCurrentEarningsMultiplier(float newMultiplier) {
+        currentEarningsMultiplier = newMultiplier;
+    }
 
     private IEnumerator OnJobSubmittedCo() {
         yield return new WaitForSeconds(3.0f);

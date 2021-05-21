@@ -7,6 +7,7 @@ using UnityEngine;
 public class ConveyorBeltHandler : MonoBehaviour {
     public float speed = 2.0f;
     public float texScrollSpeedFactor = 0.25f;
+    public float maxSpeedLimit = 1.0f;
 
     private Rigidbody rb;
     private Material mainRubberBeltMaterial;
@@ -35,7 +36,12 @@ public class ConveyorBeltHandler : MonoBehaviour {
 	}
 
     public void SetSpeed(float newSpeed) {
-        speed = newSpeed;
+        if (newSpeed > maxSpeedLimit) {
+            speed = maxSpeedLimit;
+		}
+        else {
+            speed = newSpeed;
+        }
 	}
 
     public void OnGameOver() {
